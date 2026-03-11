@@ -43,7 +43,7 @@ _EXTRACTION_INSTRUCTION = """
 你需要以 JSON 格式回复，包含以下字段：
 {
   "ready": true/false,       // 信息是否充足可以开始生成
-  "reply": "回复给用户的话",  // 友好自然的中文回复
+  "reply": "你回复给用户的话",  // 友好、自然的中文回复
   "params": {                 // 提取到的参数（可以逐步补充）
     "product": "",            // 要宣传的产品/菜品（如：招牌臭豆腐、卤肉饭、整体店铺）
     "promotion": "",          // 促销活动描述（如：买一送一、新品上线、打折）
@@ -146,7 +146,7 @@ def chat_and_maybe_generate(sess: dict, user_text: str, say, client):
         result = json.loads(raw)
     except json.JSONDecodeError:
         log.error("对话层 JSON 解析失败: %s", raw[:200])
-        say(text="抱歉，我理解出了点问题，请再说一次？", thread_ts=thread_ts)
+        say(text="抱歉，我没能理解您的意思，能再说一遍吗？", thread_ts=thread_ts)
         return
 
     reply = result.get("reply", "")
@@ -161,7 +161,7 @@ def chat_and_maybe_generate(sess: dict, user_text: str, say, client):
 
     if ready:
         # 信息充足，通知用户并启动 pipeline
-        say(text=f"{reply}\n\n正在为您生成宣传方案，请稍等...", thread_ts=thread_ts)
+        say(text=f"{reply}\n\n正在为您生成宣传草稿，请稍等...", thread_ts=thread_ts)
         session.update_stage(thread_ts, GENERATING)
 
         # 启动 pipeline（在新线程中已被 router 包装，这里直接调用）
@@ -189,7 +189,7 @@ def _format_draft_context(draft: dict) -> str:
     parts = ["[当前已生成的草稿内容]"]
     if draft.get("copy"):
         for platform, text in draft["copy"].items():
-            parts.append(f"[{platform} 文案]: {text[:200]}...")
+            parts.append(f"[{platform} copy]: {text[:200]}...")
     if draft.get("images"):
         parts.append(f"[已生成 {len(draft['images'])} 张图片]")
     if draft.get("video"):

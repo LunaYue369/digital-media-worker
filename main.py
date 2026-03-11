@@ -67,6 +67,17 @@ def on_regenerate(ack, body, say, client):
     handle_action("regenerate", body, say, client)
 
 
+@app.action("publish_to_xhs")
+def on_publish_to_xhs(ack, body, say, client):
+    """用户点击「发布到小红书」— 将已确认的草稿自动发布到小红书
+
+    流程：用户先点「满意」确认草稿 → 再点此按钮触发发布
+    发布在后台线程中执行，结果通过 say() 回报到 Slack thread
+    """
+    ack()
+    handle_action("publish_to_xhs", body, say, client)
+
+
 # ── 启动 ──────────────────────────────────────────────────────
 
 if __name__ == "__main__":

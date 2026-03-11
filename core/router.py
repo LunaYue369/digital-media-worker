@@ -15,8 +15,9 @@ import threading
 from core import session
 from core.session import GATHERING, GENERATING, REVIEWING, DONE
 from agents.conversation import chat_and_maybe_generate
-from pipeline.promo_pipeline import run_pipeline
+from pipeline.promo_pipeline import run_pipeline, publish_draft_to_xhs
 from services.image_downloader import download_slack_files
+from slack_ui.blocks import build_approved_message
 
 log = logging.getLogger(__name__)
 
@@ -105,30 +106,31 @@ def handle_action(action_type: str, body: dict, say, client):
         return
 
     if action_type == "approve":
-        # 用户满意，标记完成
+        # ── 用户点击「满意」──
+        # 标记会话为已完成，并发送带「发布到小红书」按钮的确认消息
+        # 用户可以选择点击按钮自动发布，也可以忽略按钮自行手动发布
         session.update_stage(thread_ts, DONE)
-        # 显示 token 用量摘要
-        usage = sess["usage"]
-        say(
-            text=(
-                f"太好了！素材已确认。\n\n"
-                f"*本次用量统计：*\n"
-                f"API 调用次数：{usage['api_calls']}\n"
-                f"总 tokens：{usage['prompt_tokens'] + usage['completion_tokens']:,}\n"
-                f"  - 输入：{usage['prompt_tokens']:,}\n"
-                f"  - 输出：{usage['completion_tokens']:,}\n"
-                f"预估费用：${usage['estimated_cost']:.4f}"
-            ),
-            thread_ts=thread_ts,
-        )
+        blocks = build_approved_message(sess["usage"])
+        say(blocks=blocks, text="素材已确认", thread_ts=thread_ts)
 
     elif action_type == "regenerate":
-        # 重新生成全部
+        # ── 用户点击「重新生成」──
+        # 回到生成状态，重新执行完整 pipeline
         session.update_stage(thread_ts, GENERATING)
         say(text="好的，正在重新生成全部素材...", thread_ts=thread_ts)
         threading.Thread(
             target=_safe_run,
             args=(run_pipeline, sess, say, client),
+            daemon=True,
+        ).start()
+
+    elif action_type == "publish_to_xhs":
+        # ── 用户点击「发布到小红书」──
+        # 在后台线程中执行发布，避免阻塞 Slack 的 3 秒 ack 超时
+        # publish_draft_to_xhs 内部会通过 say() 回报发布结果
+        threading.Thread(
+            target=_safe_run,
+            args=(publish_draft_to_xhs, sess, say),
             daemon=True,
         ).start()
 

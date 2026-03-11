@@ -47,30 +47,30 @@ def write_copy(params: dict, knowledge: dict, session_id: str,
 
     # 构建 user prompt
     if feedback and previous_copy:
-        prev_text = previous_copy.get("小红书", "")
+        prev_text = previous_copy.get("post", "")
         user_msg = (
-            f"请根据审核反馈重写小红书文案。\n\n"
-            f"宣传内容：{params.get('product', '')}，{params.get('promotion', '')}\n"
+            f"请根据审核反馈重写小红书文案。用中文撰写。\n\n"
+            f"产品：{params.get('product', '')}，{params.get('promotion', '')}\n"
             f"截止日期：{params.get('deadline', '无')}\n"
-            f"风格偏好：{params.get('style', '无特定要求')}\n"
+            f"风格：{params.get('style', '无特殊偏好')}\n"
             f"特殊要求：{params.get('extra_requests', '无')}\n\n"
             f"审核反馈：\n{feedback}\n\n"
             f"上一版文案：\n{prev_text}\n\n"
-            f"请针对反馈修改，保留好的部分，修正问题。\n\n"
-            f"请以 JSON 格式回复：{{\"小红书\": \"标题\\n\\n正文\\n\\n#hashtag1 #hashtag2 ...\"}}"
+            f"请修正问题，保留好的部分。\n\n"
+            f"请以 JSON 格式回复：{{\"post\": \"标题\\n\\n正文\\n\\n#标签1 #标签2 ...\"}}"
         )
     else:
         user_msg = (
-            f"请为 Tofu King 撰写一篇小红书帖子。\n\n"
-            f"宣传内容：{params.get('product', '')}，{params.get('promotion', '')}\n"
+            f"为 Tofu King 臭豆腐大王撰写一篇小红书文案。用中文撰写。\n\n"
+            f"产品：{params.get('product', '')}，{params.get('promotion', '')}\n"
             f"截止日期：{params.get('deadline', '无')}\n"
-            f"风格偏好：{params.get('style', '无特定要求')}\n"
+            f"风格：{params.get('style', '无特殊偏好')}\n"
             f"特殊要求：{params.get('extra_requests', '无')}\n\n"
-            f"请生成完整的小红书帖子，包含：\n"
-            f"1. 一个吸人眼球的标题（15-25字，有 hook）\n"
-            f"2. 正文（300-500字，分段，适量 emoji）\n"
-            f"3. 5-8 个 hashtag\n\n"
-            f"请以 JSON 格式回复：{{\"小红书\": \"标题\\n\\n正文\\n\\n#hashtag1 #hashtag2 ...\"}}"
+            f"请生成一篇完整的小红书文案，包含：\n"
+            f"1. 吸引眼球的标题（有 hook）\n"
+            f"2. 正文（300-500 字，分段，适量 emoji）\n"
+            f"3. 5-8 个话题标签\n\n"
+            f"请以 JSON 格式回复：{{\"post\": \"标题\\n\\n正文\\n\\n#标签1 #标签2 ...\"}}"
         )
 
     resp = gpt_client.chat.completions.create(
@@ -94,7 +94,7 @@ def write_copy(params: dict, knowledge: dict, session_id: str,
         copy_dict = json.loads(resp.choices[0].message.content)
     except json.JSONDecodeError:
         log.error("文案 JSON 解析失败: %s", resp.choices[0].message.content[:200])
-        copy_dict = {"小红书": resp.choices[0].message.content}
+        copy_dict = {"post": resp.choices[0].message.content}
 
     usage = {"prompt": pt, "completion": ct, "cost": cost}
     return copy_dict, usage
