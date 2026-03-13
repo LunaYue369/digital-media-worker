@@ -1,0 +1,335 @@
+[
+  {
+    "id": "fake-001",
+    "call_id": "fake-call-001",
+    "summary": "Customer called to ask about business hours and whether they are open on holidays.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["hours"],
+      "questions_asked": ["What time do you close today?", "Are you open on Christmas?"],
+      "special_requests": null
+    },
+    "sentiment": "neutral",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-01T11:20:00Z"
+  },
+  {
+    "id": "fake-002",
+    "call_id": "fake-call-002",
+    "summary": "Customer inquired about the stinky tofu and asked if they could order it for takeout.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["menu", "takeout"],
+      "questions_asked": ["Do you have stinky tofu?", "Can I order takeout?"],
+      "special_requests": null
+    },
+    "sentiment": "positive",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-01T12:45:00Z"
+  },
+  {
+    "id": "fake-003",
+    "call_id": "fake-call-003",
+    "summary": "A Taiwanese customer called excitedly asking if the stinky tofu tastes like authentic Taiwan night market style. Also asked about lu rou fan.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["menu", "authenticity"],
+      "questions_asked": ["Is your stinky tofu like the ones in Taiwan night markets?", "Do you have lu rou fan?", "How much is the stinky tofu?"],
+      "special_requests": null
+    },
+    "sentiment": "positive",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-02T13:10:00Z"
+  },
+  {
+    "id": "fake-004",
+    "call_id": "fake-call-004",
+    "summary": "Customer wanted to place a large takeout order for a family gathering — 5 orders of stinky tofu, 3 lu rou fan, and 2 cold noodles.",
+    "intent": "booking",
+    "customer_needs": {
+      "topics": ["takeout", "group order"],
+      "questions_asked": ["Can I place a large order for pickup?", "How long will it take to prepare?"],
+      "special_requests": "5 stinky tofu, 3 lu rou fan, 2 cold noodles"
+    },
+    "sentiment": "positive",
+    "action_items": [
+      {"action": "Prepare large takeout order", "details": "Customer will pick up in 40 minutes"}
+    ],
+    "reservation_data": {
+      "date": "today",
+      "time": "6:30 PM",
+      "phone": "(626) 555-1234",
+      "status": "confirmed",
+      "details": "Large takeout: 5 stinky tofu, 3 lu rou fan, 2 cold noodles",
+      "customer_name": "David"
+    },
+    "created_at": "2026-03-02T17:50:00Z"
+  },
+  {
+    "id": "fake-005",
+    "call_id": "fake-call-005",
+    "summary": "Customer asked about pricing for the full menu and whether credit cards are accepted.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["pricing", "payment"],
+      "questions_asked": ["How much is the beef tendon noodle?", "Do you take credit cards?", "What is the minimum for credit card?"],
+      "special_requests": null
+    },
+    "sentiment": "neutral",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-03T11:30:00Z"
+  },
+  {
+    "id": "fake-006",
+    "call_id": "fake-call-006",
+    "summary": "A food blogger called asking if they could visit for a review and whether the owner would be available for a short interview.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["media", "interview"],
+      "questions_asked": ["Can I come in to do a food review?", "Is the owner available for a quick chat?", "What's your most popular dish?"],
+      "special_requests": "Wants to photograph dishes for social media"
+    },
+    "sentiment": "positive",
+    "action_items": [
+      {"action": "Notify owner about blogger visit", "details": "Food blogger wants to visit this weekend for photos and review"}
+    ],
+    "reservation_data": null,
+    "created_at": "2026-03-03T14:20:00Z"
+  },
+  {
+    "id": "fake-007",
+    "call_id": "fake-call-007",
+    "summary": "Customer complained about long wait time during last visit on Saturday evening.",
+    "intent": "complaint",
+    "customer_needs": {
+      "topics": ["wait time"],
+      "questions_asked": ["Why was the wait so long last Saturday?", "Is it always this busy on weekends?"],
+      "special_requests": null
+    },
+    "sentiment": "negative",
+    "action_items": [
+      {"action": "Address wait time concern", "details": "Saturday evenings are peak hours, suggest coming before 5 PM or on weekdays"}
+    ],
+    "reservation_data": null,
+    "created_at": "2026-03-04T10:15:00Z"
+  },
+  {
+    "id": "fake-008",
+    "call_id": "fake-call-008",
+    "summary": "Student from USC called asking about prices and whether they offer any student discounts.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["pricing", "discounts"],
+      "questions_asked": ["Do you have any student discounts?", "What's the cheapest filling meal you have?", "Is the lu rou fan enough for one person?"],
+      "special_requests": null
+    },
+    "sentiment": "neutral",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-04T16:40:00Z"
+  },
+  {
+    "id": "fake-009",
+    "call_id": "fake-call-009",
+    "summary": "Customer asked if the restaurant does catering for a small office party of about 15 people.",
+    "intent": "booking",
+    "customer_needs": {
+      "topics": ["catering", "group order"],
+      "questions_asked": ["Do you do catering?", "Can you prepare food for 15 people?", "What would you recommend for a group?"],
+      "special_requests": "Office party catering for 15 people"
+    },
+    "sentiment": "positive",
+    "action_items": [
+      {"action": "Follow up on catering inquiry", "details": "Customer wants catering for 15 people next Friday, needs menu suggestions and pricing"}
+    ],
+    "reservation_data": {
+      "date": "next Friday",
+      "time": "12:00 PM",
+      "phone": "(626) 555-5678",
+      "status": "pending",
+      "details": "Office party catering for 15",
+      "customer_name": "Michelle"
+    },
+    "created_at": "2026-03-05T09:30:00Z"
+  },
+  {
+    "id": "fake-010",
+    "call_id": "fake-call-010",
+    "summary": "Returning customer called to say how much they loved the cold noodles and asked when the spicy stinky tofu would be available again.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["menu", "availability"],
+      "questions_asked": ["Is the spicy stinky tofu available today?", "When will it be back?"],
+      "special_requests": null
+    },
+    "sentiment": "positive",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-05T13:55:00Z"
+  },
+  {
+    "id": "fake-011",
+    "call_id": "fake-call-011",
+    "summary": "Customer called asking for directions to the restaurant, had trouble finding it in the shopping plaza.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["location", "directions"],
+      "questions_asked": ["Where exactly are you in the plaza?", "Is there parking nearby?", "What's the closest landmark?"],
+      "special_requests": null
+    },
+    "sentiment": "neutral",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-06T18:00:00Z"
+  },
+  {
+    "id": "fake-012",
+    "call_id": "fake-call-012",
+    "summary": "A mother called asking if the food is suitable for children and if there are any non-spicy options.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["menu", "family friendly", "dietary"],
+      "questions_asked": ["Is the stinky tofu too spicy for kids?", "Do you have non-spicy dishes?", "Is the lu rou fan kid-friendly?"],
+      "special_requests": null
+    },
+    "sentiment": "neutral",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-07T11:25:00Z"
+  },
+  {
+    "id": "fake-013",
+    "call_id": "fake-call-013",
+    "summary": "Customer wanted to order stinky tofu for delivery through DoorDash but couldn't find the restaurant. Called to confirm if they are on DoorDash.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["delivery", "DoorDash"],
+      "questions_asked": ["Are you on DoorDash?", "What's your restaurant name on the app?", "Do you deliver directly?"],
+      "special_requests": null
+    },
+    "sentiment": "neutral",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-07T19:10:00Z"
+  },
+  {
+    "id": "fake-014",
+    "call_id": "fake-call-014",
+    "summary": "An elderly customer who is a regular called to ask Jack if the pork blood rice cake is available today, and chatted about how the taste reminds them of home in Taiwan.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["menu", "availability"],
+      "questions_asked": ["Is the pork blood rice cake available today?", "Is Jack in today?"],
+      "special_requests": null
+    },
+    "sentiment": "positive",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-08T10:45:00Z"
+  },
+  {
+    "id": "fake-015",
+    "call_id": "fake-call-015",
+    "summary": "Two college students called asking what to order for first-timers who have never tried stinky tofu before.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["menu", "recommendations"],
+      "questions_asked": ["What do you recommend for someone who has never had stinky tofu?", "Is it really stinky?", "What's your best seller?"],
+      "special_requests": null
+    },
+    "sentiment": "positive",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-09T15:30:00Z"
+  },
+  {
+    "id": "fake-016",
+    "call_id": "fake-call-016",
+    "summary": "Customer called to complain that the stinky tofu portion seemed smaller than usual during their last visit.",
+    "intent": "complaint",
+    "customer_needs": {
+      "topics": ["portion size", "quality"],
+      "questions_asked": ["Did you change the portion size?", "It used to be bigger, what happened?"],
+      "special_requests": null
+    },
+    "sentiment": "negative",
+    "action_items": [
+      {"action": "Check portion consistency", "details": "Customer feels recent portion was smaller than usual"}
+    ],
+    "reservation_data": null,
+    "created_at": "2026-03-09T17:20:00Z"
+  },
+  {
+    "id": "fake-017",
+    "call_id": "fake-call-017",
+    "summary": "Customer asked about bringing a group of 8 friends this weekend and whether they need to reserve a table.",
+    "intent": "booking",
+    "customer_needs": {
+      "topics": ["booking", "group dining"],
+      "questions_asked": ["Do I need a reservation for 8 people?", "How long is the typical wait on Saturday?", "Can we push tables together?"],
+      "special_requests": "Group of 8, Saturday evening"
+    },
+    "sentiment": "positive",
+    "action_items": [
+      {"action": "Note group visit", "details": "Group of 8 planning to come Saturday evening, advised to come early"}
+    ],
+    "reservation_data": {
+      "date": "Saturday",
+      "time": "evening",
+      "phone": null,
+      "status": "pending",
+      "details": "Group of 8 friends",
+      "customer_name": null
+    },
+    "created_at": "2026-03-10T14:00:00Z"
+  },
+  {
+    "id": "fake-018",
+    "call_id": "fake-call-018",
+    "summary": "Customer from San Francisco visiting LA this weekend, asked if the stinky tofu is worth the drive from downtown.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["recommendations", "location"],
+      "questions_asked": ["Is it worth driving from downtown LA?", "How far is it from the 10 freeway?", "What time is best to avoid the wait?"],
+      "special_requests": null
+    },
+    "sentiment": "positive",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-11T09:15:00Z"
+  },
+  {
+    "id": "fake-019",
+    "call_id": "fake-call-019",
+    "summary": "Customer called asking if they can bring their own drinks since the restaurant doesn't seem to have a big beverage menu.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["policy", "beverages"],
+      "questions_asked": ["Can I bring my own boba tea?", "What drinks do you have?", "Is there a corkage fee?"],
+      "special_requests": null
+    },
+    "sentiment": "neutral",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-11T12:40:00Z"
+  },
+  {
+    "id": "fake-020",
+    "call_id": "fake-call-020",
+    "summary": "Nostalgic customer who grew up in Taipei called to thank the owner for keeping authentic Taiwanese flavors alive in the US. Asked about the sausage wrap.",
+    "intent": "inquiry",
+    "customer_needs": {
+      "topics": ["menu", "authenticity"],
+      "questions_asked": ["Do you still have the da chang bao xiao chang?", "Is Jack the one cooking?"],
+      "special_requests": null
+    },
+    "sentiment": "positive",
+    "action_items": [],
+    "reservation_data": null,
+    "created_at": "2026-03-12T10:00:00Z"
+  }
+]

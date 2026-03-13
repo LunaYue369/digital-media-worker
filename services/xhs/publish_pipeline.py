@@ -319,6 +319,13 @@ def main():
         help="Timer for publishing on note",
     )
 
+    # Location / POI
+    parser.add_argument(
+        "--location",
+        default=None,
+        help="Location/POI search text to attach to the post (e.g. 'Royal Taste Bistro')",
+    )
+
     # Media: images OR video (mutually exclusive)
     media_group = parser.add_mutually_exclusive_group(required=True)
     media_group.add_argument(
@@ -426,6 +433,7 @@ def main():
     timing_jitter = _normalize_timing_jitter(args.timing_jitter)
     local_mode = _is_local_host(host)
     post_time = args.post_time
+    location = args.location
 
     if timing_jitter != args.timing_jitter:
         print(
@@ -560,11 +568,13 @@ def main():
     try:
         if is_video_mode:
             publisher.publish_video(
-                title=title, content=content, video_path=video_path
+                title=title, content=content, video_path=video_path,
+                location=location
             )
         else:
             publisher.publish(
-                title=title, content=content, image_paths=image_paths, post_time=post_time
+                title=title, content=content, image_paths=image_paths,
+                post_time=post_time, location=location
             )
         _select_topics(publisher, topic_tags, timing_jitter=timing_jitter)
         print("FILL_STATUS: READY_TO_PUBLISH")

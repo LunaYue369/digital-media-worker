@@ -1,0 +1,10 @@
+{
+  "merchant_id": "royal_taste_bistro",
+  "store_name": "Royal Taste Bistro 御品軒",
+  "store_name_short": "御品軒",
+  "default_product": "明爐燒鴨",
+  "cuisine_type": "港式燒臘茶餐廳",
+  "fallback_image_prompt": "港式烧鸭特写，皮脆肉嫩油亮，搭配白切鸡和叉烧，红色酱汁点缀，暖色调灯光，45度角俯拍，高清美食摄影，4K",
+  "fallback_video_prompt": "写实风格，港式烧腊档口特写，烧鸭挂炉滴油，师傅手起刀落斩件上碟，蒸汽升腾，镜头缓慢推近，暖色调灯光，美食广告质感",
+  "xhs_location": "Royal Taste Bistro"
+}

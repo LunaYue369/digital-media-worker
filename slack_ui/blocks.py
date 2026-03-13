@@ -13,7 +13,7 @@ def build_result_message(copy_dict: dict, image_paths: list,
     """构建完整的结果展示消息（Block Kit 格式）
 
     Args:
-        copy_dict: {平台名: 文案文本}
+        copy_dict: {"title": "标题", "content": "正文", "tags": ["#tag1", ...]}
         image_paths: 图片路径列表
         video_path: 视频路径
         usage: token 用量统计
@@ -31,21 +31,39 @@ def build_result_message(copy_dict: dict, image_paths: list,
 
     blocks.append({"type": "divider"})
 
-    # 各平台文案
-    for platform, text in copy_dict.items():
+    # 小红书文案 — 结构化展示
+    title = copy_dict.get("title", "")
+    content = copy_dict.get("content", "")
+    tags = copy_dict.get("tags", [])
+    tags_text = " ".join(tags) if isinstance(tags, list) else str(tags)
+
+    # 标题
+    if title:
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"*{platform} 文案：*",
+                "text": f"*小红书标题：*\n```\n{title}\n```",
             }
         })
-        # 用 code block 方便复制
+
+    # 正文
+    if content:
         blocks.append({
             "type": "section",
             "text": {
                 "type": "mrkdwn",
-                "text": f"```\n{text}\n```",
+                "text": f"*小红书正文：*\n```\n{content}\n```",
+            }
+        })
+
+    # 标签
+    if tags_text:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*标签：*\n{tags_text}",
             }
         })
 

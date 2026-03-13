@@ -15,7 +15,7 @@
     from services.xhs_publisher import publish_to_xhs, PublishConfig
 
     result = publish_to_xhs(
-        title="今日推荐：臭豆腐大王",
+        title="今日推荐",
         content="正文内容...",
         image_paths=["path/to/img1.jpg", "path/to/img2.jpg"],
         tags=["#美食", "#小吃"],
@@ -86,6 +86,7 @@ class PublishConfig:
         timing_jitter:    操作间的随机延迟比例（0~0.7），模拟人类操作节奏，防检测
         reuse_existing_tab: 是否复用已有的 Chrome 标签页（headed 模式下减少窗口切换）
         post_time:        定时发布时间字符串（格式 "YYYY-MM-DD HH:MM"），None 则立即发布
+        location:         地点/POI 搜索文本（如 "Royal Taste Bistro"），None 则不添加地点
     """
     host: str = "127.0.0.1"
     port: int = 9222
@@ -95,6 +96,7 @@ class PublishConfig:
     timing_jitter: float = 0.25
     reuse_existing_tab: bool = False
     post_time: Optional[str] = None
+    location: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -390,14 +392,18 @@ def publish_to_xhs(
 
             # ── 第 3 步：填写发布表单 ──
             if is_video:
-                # 视频模式：上传视频 → 填标题 → 填正文
-                publisher.publish_video(title=title, content=content, video_path=video_path)
+                # 视频模式：上传视频 → 填标题 → 填正文 → 设地点
+                publisher.publish_video(
+                    title=title, content=content, video_path=video_path,
+                    location=config.location,
+                )
             else:
-                # 图文模式：上传图片 → 填标题 → 填正文
+                # 图文模式：上传图片 → 填标题 → 填正文 → 设地点
                 publisher.publish(
                     title=title, content=content,
                     image_paths=image_paths or [],
                     post_time=config.post_time,
+                    location=config.location,
                 )
 
             # ── 第 4 步：在编辑器中输入话题标签 ──
@@ -456,6 +462,7 @@ if __name__ == "__main__":
     parser.add_argument("--preview", action="store_true", help="只填表不发布")
     parser.add_argument("--account", help="账号名称（默认用 default）")
     parser.add_argument("--port", type=int, default=9222, help="CDP 端口（默认 9222）")
+    parser.add_argument("--location", help="地点/POI 搜索文本（如 'Royal Taste Bistro'）")
     args = parser.parse_args()
 
     cfg = PublishConfig(
@@ -463,6 +470,7 @@ if __name__ == "__main__":
         headless=False,  # CLI 测试时用有界面模式，方便观察
         account=args.account,
         preview=args.preview,
+        location=args.location,
     )
 
     result = publish_to_xhs(

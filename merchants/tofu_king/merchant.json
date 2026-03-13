@@ -1,0 +1,9 @@
+{
+  "merchant_id": "tofu_king",
+  "store_name": "Tofu King 臭豆腐大王",
+  "store_name_short": "Tofu King",
+  "default_product": "招牌臭豆腐",
+  "cuisine_type": "台湾小吃",
+  "fallback_image_prompt": "台湾炸臭豆腐特写，金黄酥脆外皮，配蒜香酱油和酸菜，暖色调，高清美食摄影，4K",
+  "fallback_video_prompt": "写实风格，台湾臭豆腐特写，热气腾腾，镜头从远处缓慢推近到食物特写，暖色调灯光，油炸滋滋声，轻快的背景音乐，美食广告质感"
+}

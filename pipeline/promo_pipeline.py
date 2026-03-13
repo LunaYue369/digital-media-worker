@@ -3,7 +3,7 @@
 完整流程：
 1. 媒体提示词生成（prompt_engineer）
 2. 文案生成 → 审核循环（最多 3 轮）
-3. 图片处理（Pillow 加工 / AI 图生图 / AI 文生图）
+3. 图片处理（AI 图生图润色 / AI 文生图）
 4. 视频生成（可选，Seedance 文生视频 / 图生视频）
 5. 发送结果到 Slack + 操作按钮
 6. 自动发布到小红书（可选，通过 Slack 按钮触发）
@@ -19,6 +19,7 @@ from agents.media_engineer import generate_prompts
 from services.image_processor import process_images
 from services.video_generator import generate_video
 from services.usage_tracker import estimate_cost
+from core.merchant_config import get as _merchant_get
 from services.xhs_publisher import publish_to_xhs, PublishConfig, PublishResult
 from slack_ui.blocks import build_result_message
 
@@ -31,9 +32,10 @@ def run_pipeline(sess: dict, say, slack_client):
     channel = sess["channel"]
     params = sess["params"]
     user_images = sess["user_images"]
+    log.info("Pipeline 开始: user_images=%s, params=%s", user_images, {k: v for k, v in params.items() if k != "image"})
 
     # 判断是否需要 AI 生成图片/视频
-    image_mode = params.get("image_mode", "edit" if user_images else "generate")
+    image_mode = params.get("image_mode", "reference" if user_images else "generate")
     need_ai_image = image_mode in ("reference", "generate")
     need_video = params.get("generate_video", False)
 
@@ -254,6 +256,7 @@ def publish_draft_to_xhs(
         headless=True,
         account=account,
         post_time=post_time,
+        location=_merchant_get("xhs_location"),
     )
 
     result = publish_to_xhs(

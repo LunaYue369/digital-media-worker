@@ -37,7 +37,7 @@ def review_copy(copy_dict: dict, params: dict, session_id: str) -> dict:
     """审核文案，返回审核结果
 
     Args:
-        copy_dict: {平台名: 文案文本}
+        copy_dict: {"title": "标题", "content": "正文", "tags": ["#tag1", ...]}
         params: 生成参数（用于验证准确性）
         session_id: 会话 ID
 
@@ -53,8 +53,11 @@ def review_copy(copy_dict: dict, params: dict, session_id: str) -> dict:
     system_prompt = build_system_prompt("reviewer")
     gpt_client = _get_client()
 
-    # 拼接所有平台的文案
-    copy_text = "\n\n".join(f"【{k}】\n{v}" for k, v in copy_dict.items())
+    # 拼接文案供审核
+    title = copy_dict.get("title", "")
+    content = copy_dict.get("content", "")
+    tags = " ".join(copy_dict.get("tags", []))
+    copy_text = f"【标题】\n{title}\n\n【正文】\n{content}\n\n【标签】\n{tags}"
 
     user_msg = (
         f"请审核以下宣传文案。\n\n"

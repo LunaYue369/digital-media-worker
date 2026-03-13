@@ -4,6 +4,10 @@
 - 对话层：GPT 理解用户意图，提取参数
 - 执行层：文案生成 → 审核循环 → 图片处理 → 视频生成
 - 交互层：结果展示 + 按钮反馈 + 局部修改
+
+多商家支持：通过 MERCHANT 环境变量指定商家
+    MERCHANT=tofu_king python main.py
+    MERCHANT=boba_shop python main.py
 """
 
 import logging
@@ -11,7 +15,13 @@ import os
 
 from dotenv import load_dotenv
 
+# 先加载项目根 .env（通用配置），再由 merchant_config 加载商家 .env（覆盖）
 load_dotenv()
+
+from core.merchant_config import load_merchant_config
+
+# 加载商家配置（读 MERCHANT 环境变量，加载对应 merchant.json 和 .env）
+merchant_cfg = load_merchant_config()
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -82,6 +92,7 @@ def on_publish_to_xhs(ack, body, say, client):
 
 if __name__ == "__main__":
     soul_loader.load_all()
-    log.info("DigitalMediaWorker 启动中 (Socket Mode)...")
+    log.info("DigitalMediaWorker 启动中 — 商家: %s (Socket Mode)...",
+             merchant_cfg.get("store_name", "未配置"))
     handler = SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"])
     handler.start()

@@ -11,6 +11,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from core.merchant_config import default_product as _default_product, fallback_video_prompt as _fallback_video_prompt
 from services.seedance_client import SeedanceClient
 
 log = logging.getLogger(__name__)
@@ -32,12 +33,7 @@ def generate_video(user_images: list, params: dict, session_id: str,
         视频文件路径，失败返回 None
     """
     if not video_prompt:
-        product = params.get("product", "臭豆腐")
-        video_prompt = (
-            f"写实风格，台湾{product}特写，热气腾腾，"
-            f"镜头从远处缓慢推近到食物特写，暖色调灯光，"
-            f"油炸滋滋声，轻快的背景音乐，美食广告质感"
-        )
+        video_prompt = _fallback_video_prompt()
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir = OUTPUT_DIR / timestamp

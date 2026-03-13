@@ -20,6 +20,7 @@ from openai import OpenAI
 
 from agents.soul_loader import build_system_prompt
 from core import session
+from core.merchant_config import store_name as _store_name
 from core.session import GENERATING
 from services.usage_tracker import record_usage, estimate_cost
 
@@ -37,24 +38,26 @@ def _get_client() -> OpenAI:
 
 
 # 对话层的 system prompt 后缀：指导 GPT 做意图理解和参数提取
-_EXTRACTION_INSTRUCTION = """
-你是 Tofu King 臭豆腐大王的宣传助手，目标平台固定为小红书。
+def _build_extraction_instruction() -> str:
+    return f"""
+你是{_store_name()}的宣传助手，目标平台固定为小红书。
+生成的内容是从店家视角出发的（店铺自己的宣传），不是顾客探店视角。
 
 你需要以 JSON 格式回复，包含以下字段：
-{
+{{
   "ready": true/false,       // 信息是否充足可以开始生成
   "reply": "你回复给用户的话",  // 友好、自然的中文回复
-  "params": {                 // 提取到的参数（可以逐步补充）
-    "product": "",            // 要宣传的产品/菜品（如：招牌臭豆腐、卤肉饭、整体店铺）
+  "params": {{                 // 提取到的参数（可以逐步补充）
+    "product": "",            // 要宣传的产品/菜品（如：招牌产品、套餐、整体店铺）
     "promotion": "",          // 促销活动描述（如：买一送一、新品上线、打折）
     "deadline": "",           // 活动截止日期
     "style": "",              // 文案风格偏好（如：乡愁感、搞笑、种草探店、食欲诱惑、性价比安利）
     "extra_requests": "",     // 其他特殊要求
     "image_mode": "",         // 图片处理模式：
-                              //   "edit"      = 用户有图，只需 Pillow 加工（裁剪、加文字）
-                              //   "reference" = 用户有图，但要作为参考让 AI 生成新图
+                              //   "raw"       = 用户有图，直接用原图不做修改
+                              //   "reference" = 用户有图，AI 润色美化（调色、滤镜、艺术字）
                               //   "generate"  = 用户无图，AI 纯文生图
-                              //   留空则自动判断（有图=edit，无图=generate）
+                              //   留空则自动判断（有图=reference，无图=generate）
     "generate_video": false,  // 是否需要生成视频
 
     // ── 图片生成细节（image_mode 为 reference 或 generate 时收集） ──
@@ -71,9 +74,9 @@ _EXTRACTION_INSTRUCTION = """
     "video_camera": "",       // 运镜方式：缓慢推进 / 环绕拍摄 / 固定机位 / 从远到近 / 平移跟拍
     "video_sound": "",        // 音效/BGM：油炸滋滋声 / 轻快BGM / 台湾民谣风 / 街道嘈杂声 / 安静
     "video_style": "",        // 视频风格：写实 / 电影质感 / 美食广告 / 纪实风格 / 慢动作
-    "video_scene": ""         // 画面场景描述（如：筷子夹起臭豆腐、蒸汽升腾、顾客排队）
-  }
-}
+    "video_scene": ""         // 画面场景描述（如：产品特写、蒸汽升腾、顾客排队）
+  }}
+}}
 
 判断 ready=true 的条件：
 - 至少知道要宣传什么（product 不为空）
@@ -81,11 +84,11 @@ _EXTRACTION_INSTRUCTION = """
 - 如果需要 AI 生成图片（image_mode 为 reference 或 generate），至少确认了图片风格
 - 如果需要生成视频，至少确认了视频的画面内容
 
-图片模式判断规则：
-- 用户上传了图片，且说「用这些图」「帮我加工一下」→ image_mode="edit"
-- 用户上传了图片，且说「根据这张图生成」「参考这个风格」→ image_mode="reference"
-- 用户没有图片，或说「帮我生成图片」→ image_mode="generate"
-- 用户只是上传图片没说怎么用，在回复中确认（夸一下照片），并追问是想直接用还是作为参考
+图片模式判断规则（非常重要，必须严格遵守）：
+- 用户上传了图片，且表达了"直接用"、"不用修改"、"用原图"、"不用处理"、"不用美化"、"不用PS"、"原图就行"、"不用改图"等任何「保持原样/不做修改」的意思 → image_mode="raw"（原图直发，不经过任何 AI 处理）
+- 用户上传了图片，且没有说不修改，或明确要求美化/润色 → image_mode="reference"（AI 润色美化）
+- 用户没有图片，或说「帮我生成图片」→ image_mode="generate"（AI 纯文生图）
+⚠️ 当用户说了"不用修改"类的话，你必须设置 image_mode="raw"，绝对不能设为 "reference"。
 
 当用户需要 AI 生成图片或视频时，你必须主动询问细节参数：
 - 图片：询问风格、构图、光线、色调偏好，并给出 2-3 个具体选项让用户选择
@@ -104,7 +107,7 @@ def chat_and_maybe_generate(sess: dict, user_text: str, say, client):
     thread_ts = sess["thread_ts"]
 
     # 构建 system prompt
-    system_prompt = build_system_prompt("assistant") + "\n\n" + _EXTRACTION_INSTRUCTION
+    system_prompt = build_system_prompt("assistant") + "\n\n" + _build_extraction_instruction()
 
     # 构建消息列表（包含完整对话历史）
     messages = [{"role": "system", "content": system_prompt}]
@@ -187,9 +190,14 @@ def _merge_params(sess: dict, new_params: dict):
 def _format_draft_context(draft: dict) -> str:
     """把当前草稿格式化为上下文提示，供修改时参考"""
     parts = ["[当前已生成的草稿内容]"]
-    if draft.get("copy"):
-        for platform, text in draft["copy"].items():
-            parts.append(f"[{platform} copy]: {text[:200]}...")
+    copy = draft.get("copy", {})
+    if copy:
+        if copy.get("title"):
+            parts.append(f"[标题]: {copy['title']}")
+        if copy.get("content"):
+            parts.append(f"[正文]: {copy['content'][:300]}...")
+        if copy.get("tags"):
+            parts.append(f"[标签]: {' '.join(copy['tags'])}")
     if draft.get("images"):
         parts.append(f"[已生成 {len(draft['images'])} 张图片]")
     if draft.get("video"):

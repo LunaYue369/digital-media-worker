@@ -6,3 +6,4 @@ data/usage_log.json
 data/sessions/
 services/xhs/config/accounts.json
 services/tmp/
+merchants/*/.env

@@ -4,11 +4,14 @@
 支持：文生图、图生图、多图融合、组图生成。
 """
 
+import logging
 import os
 import base64
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
+
+log = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -29,9 +32,13 @@ class SeedreamClient:
         })
 
     def _encode_image_base64(self, image_path: Path) -> str:
-        """将图片编码为 base64"""
+        """将图片编码为 data URI 格式（Seedream API 要求）"""
+        suffix = image_path.suffix.lower()
+        mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+                "webp": "image/webp"}.get(suffix.lstrip("."), "image/png")
         with open(image_path, "rb") as f:
-            return base64.b64encode(f.read()).decode("utf-8")
+            b64 = base64.b64encode(f.read()).decode("utf-8")
+        return f"data:{mime};base64,{b64}"
 
     def _prepare_image_param(self, image_paths: list) -> str | list:
         """准备 image 参数：本地文件转 base64，URL 直接使用"""
@@ -69,12 +76,19 @@ class SeedreamClient:
             payload["sequential_image_generation"] = "auto"
             payload["sequential_image_generation_options"] = {"max_images": max_images}
 
+        # 记录请求参数（不含 base64 图片数据）
+        debug_payload = {k: (f"<base64 {len(v) if isinstance(v, str) else 'list'}>" if k == "image" else v)
+                         for k, v in payload.items()}
+        log.info("Seedream request: %s", debug_payload)
+
         response = self.session.post(
             f"{self.BASE_URL}{self.ENDPOINT}",
             json=payload,
             timeout=120,
         )
-        response.raise_for_status()
+        if response.status_code != 200:
+            log.error("Seedream API error %s:\n%s", response.status_code, response.text[:1000])
+            response.raise_for_status()
         result = response.json()
 
         if "error" in result:

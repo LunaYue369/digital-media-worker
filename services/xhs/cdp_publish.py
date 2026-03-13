@@ -2002,6 +2002,127 @@ class XiaohongshuPublisher:
 
         raise CDPError("Could not find content editor element.")
 
+    def _set_location(self, location: str | None):
+        """Select a location (POI) for the post via the address-card-select dropdown.
+
+        Args:
+            location: Search text for the location (e.g. "Royal Taste Bistro").
+                      If None or empty, this step is skipped.
+        """
+        if not location:
+            return
+
+        print(f"[cdp_publish] Setting location: {location}")
+        self._sleep(ACTION_INTERVAL, minimum_seconds=0.25)
+
+        escaped_location = json.dumps(location)
+
+        result = self._evaluate(f"""
+            (async function() {{
+                const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+                // Wait for address-card-select to appear (it only renders
+                // after images + title + content have been filled in)
+                var selectWrapper = null;
+                for (var attempt = 0; attempt < 10; attempt++) {{
+                    selectWrapper = document.querySelector('.address-card-select');
+                    if (selectWrapper) break;
+                    await sleep(1000);
+                }}
+                if (!selectWrapper) {{
+                    return {{ ok: false, reason: 'address-card-select not found after waiting' }};
+                }}
+
+                // Click to open the dropdown
+                selectWrapper.click();
+                await sleep(500);
+
+                // Find the address dropdown (the one containing '搜索地点' or with address results)
+                var allDropdowns = document.querySelectorAll('.custom-dropdown-44');
+                var addrDropdown = null;
+                for (var i = 0; i < allDropdowns.length; i++) {{
+                    var text = allDropdowns[i].innerText || '';
+                    if (text.includes('搜索地点') || text.includes('输入并搜索')) {{
+                        addrDropdown = allDropdowns[i];
+                        break;
+                    }}
+                }}
+                // Fallback: if none matched by text, use the dropdown that is a sibling
+                // of the address-card-wrapper's parent
+                if (!addrDropdown) {{
+                    // Try to find it by checking which dropdown has an empty-text with 搜索
+                    for (var i = 0; i < allDropdowns.length; i++) {{
+                        var empty = allDropdowns[i].querySelector('.empty-text');
+                        if (empty) {{
+                            addrDropdown = allDropdowns[i];
+                            break;
+                        }}
+                    }}
+                }}
+                if (!addrDropdown) {{
+                    return {{ ok: false, reason: 'address dropdown not found' }};
+                }}
+
+                // Find and reveal the search input
+                var inputFilter = selectWrapper.querySelector('.d-select-input-filter');
+                var input = inputFilter ? inputFilter.querySelector('input') : null;
+                if (!input) {{
+                    return {{ ok: false, reason: 'search input not found' }};
+                }}
+                inputFilter.classList.remove('hide');
+                input.focus();
+                await sleep(200);
+
+                // Clear existing input
+                input.value = '';
+                input.dispatchEvent(new InputEvent('input', {{
+                    bubbles: true, inputType: 'deleteContentBackward'
+                }}));
+                await sleep(300);
+
+                // Type location character by character
+                var address = {escaped_location};
+                for (var i = 0; i < address.length; i++) {{
+                    input.value += address[i];
+                    input.dispatchEvent(new InputEvent('input', {{
+                        bubbles: true, data: address[i], inputType: 'insertText'
+                    }}));
+                    await sleep(80);
+                }}
+
+                // Wait for search results
+                await sleep(3000);
+
+                // Check results
+                var gridItems = addrDropdown.querySelectorAll('.d-grid-item');
+                if (gridItems.length === 0) {{
+                    return {{ ok: false, reason: 'no search results for: ' + address }};
+                }}
+
+                // Click the first result
+                var firstItem = gridItems[0];
+                firstItem.click();
+                var option = firstItem.querySelector('.d-option');
+                if (option) option.click();
+                await sleep(500);
+
+                // Verify selection
+                var desc = selectWrapper.querySelector('.d-select-description');
+                var selectedText = desc ? desc.innerText.trim() : '';
+                return {{
+                    ok: true,
+                    selected: selectedText || '(selected)'
+                }};
+            }})()
+        """)
+
+        if isinstance(result, dict) and result.get("ok"):
+            selected = result.get("selected", "")
+            print(f"[cdp_publish] Location set: {selected}")
+        else:
+            reason = result.get("reason") if isinstance(result, dict) else str(result)
+            print(f"[cdp_publish] Warning: Failed to set location ({reason}). Continuing without location.")
+
     def _set_schedule_post_time(self, post_time: str | None):
         """Set schedle publish time if necessary"""
         if post_time == None:
@@ -2318,6 +2439,7 @@ class XiaohongshuPublisher:
         content: str,
         image_paths: list[str] | None = None,
         post_time: str | None = None,
+        location: str | None = None,
     ):
         """
         Execute the full publish workflow:
@@ -2326,20 +2448,22 @@ class XiaohongshuPublisher:
         3. Upload images (this triggers the editor to appear)
         4. Fill title
         5. Fill content
-        6. Set schedule publish time (if necessary)
+        6. Set location (if provided)
+        7. Set schedule publish time (if necessary)
 
         Args:
             title: Article title
             content: Article body text (paragraphs separated by newlines)
             image_paths: List of local file paths to images to upload
             post_time: Optional scheduled publish time (e.g. "2026-03-01 10:00")
+            location: Optional location/POI search text (e.g. "Royal Taste Bistro")
         """
         if not self.ws:
             raise CDPError("Not connected. Call connect() first.")
 
         if not image_paths:
             raise CDPError("At least one image is required to publish on Xiaohongshu.")
-        
+
         if post_time and not validate_schedule_post_time(post_time):
             raise CDPError(
                 "Scheduled publish time is invalid. "
@@ -2362,7 +2486,10 @@ class XiaohongshuPublisher:
         # Step 5: Fill content
         self._fill_content(content)
 
-        # Step 6: Set schedule publish time (if provided)
+        # Step 6: Set location (if provided)
+        self._set_location(location)
+
+        # Step 7: Set schedule publish time (if provided)
         self._set_schedule_post_time(post_time)
 
         print(
@@ -2375,6 +2502,7 @@ class XiaohongshuPublisher:
         title: str,
         content: str,
         video_path: str,
+        location: str | None = None,
     ):
         """
         Execute the full video publish workflow:
@@ -2383,11 +2511,13 @@ class XiaohongshuPublisher:
         3. Upload video file and wait for processing
         4. Fill title
         5. Fill content
+        6. Set location (if provided)
 
         Args:
             title: Article title
             content: Article body text (paragraphs separated by newlines)
             video_path: Local file path to the video to upload
+            location: Optional location/POI search text (e.g. "Royal Taste Bistro")
         """
         if not self.ws:
             raise CDPError("Not connected. Call connect() first.")
@@ -2411,6 +2541,9 @@ class XiaohongshuPublisher:
 
         # Step 5: Fill content
         self._fill_content(content)
+
+        # Step 6: Set location (if provided)
+        self._set_location(location)
 
         print(
             "\n[cdp_publish] Video content has been filled in.\n"

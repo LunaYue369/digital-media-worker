@@ -10,6 +10,7 @@ import os
 from openai import OpenAI
 
 from agents.soul_loader import build_system_prompt
+from core.merchant_config import store_name_short as _store_name_short, default_product as _default_product
 from services.usage_tracker import record_usage, estimate_cost
 
 log = logging.getLogger(__name__)
@@ -44,8 +45,8 @@ def generate_prompts(params: dict, session_id: str,
     gpt_client = _get_client()
 
     # 构建需求描述
-    parts = [f"请为 Tofu King 生成媒体提示词。\n"]
-    parts.append(f"宣传内容：{params.get('product', '招牌臭豆腐')}")
+    parts = [f"请为{_store_name_short()}生成媒体提示词。\n"]
+    parts.append(f"宣传内容：{params.get('product', _default_product())}")
     if params.get("promotion"):
         parts.append(f"促销信息：{params['promotion']}")
     if params.get("style"):
