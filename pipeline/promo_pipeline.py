@@ -27,108 +27,289 @@ log = logging.getLogger(__name__)
 
 
 def run_pipeline(sess: dict, say, slack_client):
-    """执行完整生成 pipeline"""
+    """执行生成 pipeline（支持完整生成和局部修改）
+
+    局部修改由 params["modify_scope"] 控制：
+    - modify_scope.title: True=重写标题, False=保留
+    - modify_scope.content: True=重写正文和标签, False=保留
+    - modify_scope.images: "keep"=全部保留, "all"=全部重做, [1,3]=只重做指定编号
+    - modify_scope.video: "keep"=保留, "redo"=重做
+    不存在 modify_scope 时走完整生成流程。
+    """
     thread_ts = sess["thread_ts"]
     channel = sess["channel"]
     params = sess["params"]
     user_images = sess["user_images"]
-    log.info("Pipeline 开始: user_images=%s, params=%s", user_images, {k: v for k, v in params.items() if k != "image"})
+    draft = sess.get("draft") or {}
+    modify_scope = params.pop("modify_scope", None)
+    modify_feedback = params.pop("modify_feedback", "")
 
-    # 判断是否需要 AI 生成图片/视频
-    image_mode = params.get("image_mode", "reference" if user_images else "generate")
-    need_ai_image = image_mode in ("reference", "generate")
-    need_video = params.get("generate_video", False)
+    # 判断是否为局部修改模式
+    is_partial = bool(modify_scope and draft)
+
+    if is_partial:
+        log.info("Pipeline 局部修改: scope=%s", modify_scope)
+        redo_title = modify_scope.get("title", False)
+        redo_content = modify_scope.get("content", False)
+        redo_images = modify_scope.get("images", "keep")  # "keep" / "all" / [1,3]
+        redo_video = modify_scope.get("video", "keep")     # "keep" / "redo"
+    else:
+        log.info("Pipeline 完整生成: user_images=%s, params=%s",
+                 user_images, {k: v for k, v in params.items() if k != "image"})
+        redo_title = True
+        redo_content = True
+        redo_images = "all"
+        redo_video = "redo" if params.get("generate_video") else "keep"
+
+    redo_any_copy = redo_title or redo_content
+
+    # ── 分析图片处理需求 ──────────────────────────────────────
+
+    image_mode = params.get("image_mode", "")
+    per_image_modes = params.get("per_image_modes", [])
+    extra_generate_count = params.get("extra_generate_count", 0)
+    need_video = (redo_video == "redo")
+
+    # 局部修改时，如果图片保留则不需要任何图片处理
+    if is_partial and redo_images == "keep":
+        need_any_ai_image = False
+        need_enhance = False
+        need_reference = False
+        need_generate = False
+    else:
+        if image_mode == "mixed" and per_image_modes:
+            need_enhance = "enhance" in per_image_modes
+            need_reference = "reference" in per_image_modes
+            need_generate = extra_generate_count > 0
+        elif image_mode == "enhance":
+            need_enhance = True
+            need_reference = False
+            need_generate = extra_generate_count > 0
+        elif image_mode == "reference":
+            need_enhance = False
+            need_reference = True
+            need_generate = extra_generate_count > 0
+        elif image_mode == "generate":
+            need_enhance = False
+            need_reference = False
+            need_generate = True
+        elif image_mode == "raw":
+            need_enhance = False
+            need_reference = False
+            need_generate = extra_generate_count > 0
+        else:
+            need_enhance = bool(user_images)
+            need_reference = False
+            need_generate = not user_images or extra_generate_count > 0
+
+        need_any_ai_image = need_enhance or need_reference or need_generate
 
     # ── 0. 生成媒体提示词（如果需要 AI 图片或视频） ───────────
 
+    enhance_prompt = ""
+    reference_prompt = ""
     image_prompt = ""
     video_prompt = ""
 
-    if need_ai_image or need_video:
+    if need_any_ai_image or need_video:
         say(text="[0/4] 构思创意概念中...", thread_ts=thread_ts)
         prompts, prompt_usage = generate_prompts(
             params=params,
             session_id=thread_ts,
-            need_image=need_ai_image,
+            need_enhance=need_enhance,
+            need_reference=need_reference,
+            need_generate=need_generate,
             need_video=need_video,
             has_reference_images=bool(user_images),
         )
         session.add_usage(thread_ts, prompt_usage["prompt"], prompt_usage["completion"], prompt_usage["cost"])
+        enhance_prompt = prompts.get("enhance_prompt", "")
+        reference_prompt = prompts.get("reference_prompt", "")
         image_prompt = prompts.get("image_prompt", "")
         video_prompt = prompts.get("video_prompt", "")
 
     # 计算总步骤数
-    total_steps = 2 + (1 if need_ai_image or user_images else 0) + (1 if need_video else 0)
+    steps_needed = (
+        (1 if redo_any_copy else 0)
+        + (1 if need_any_ai_image or (redo_images != "keep" and user_images) else 0)
+        + (1 if need_video else 0)
+        + 1  # 发送结果
+    )
     step = 0
 
     # ── 1. 文案生成 + 审核循环 ────────────────────────────────
 
-    step += 1
-    say(text=f"[{step}/{total_steps}] 正在撰写文案...", thread_ts=thread_ts)
-
-    copy_dict = None
-    review = None
-    max_rounds = get_max_rounds()
-
-    for round_num in range(1, max_rounds + 1):
-        if round_num == 1:
-            copy_dict, usage = write_copy(params, {}, thread_ts)
+    if redo_any_copy:
+        # 确定重写模式
+        if redo_title and redo_content:
+            rewrite_mode = "full"
+            step_label = "正在撰写文案..."
+        elif redo_title:
+            rewrite_mode = "title_only"
+            step_label = "正在重写标题..."
         else:
-            feedback = build_feedback(review)
-            copy_dict, usage = write_copy(
-                params, {}, thread_ts,
-                feedback=feedback, previous_copy=copy_dict,
-            )
+            rewrite_mode = "content_only"
+            step_label = "正在重写正文..."
 
-        session.add_usage(thread_ts, usage["prompt"], usage["completion"], usage["cost"])
+        step += 1
+        say(text=f"[{step}/{steps_needed}] {step_label}", thread_ts=thread_ts)
 
-        # 审核
-        review = review_copy(copy_dict, params, thread_ts)
+        previous_copy = draft.get("copy") if is_partial else None
+        copy_dict = None
+        review = None
+        max_rounds = get_max_rounds()
 
-        if review.get("approved"):
-            log.info("文案审核通过 (第 %d 轮)", round_num)
-            if round_num > 1:
-                say(text=f"文案经过 {round_num} 轮审核后通过。", thread_ts=thread_ts)
-            break
+        for round_num in range(1, max_rounds + 1):
+            if round_num == 1:
+                copy_dict, usage = write_copy(
+                    params, {}, thread_ts,
+                    previous_copy=previous_copy,
+                    rewrite_mode=rewrite_mode,
+                    user_feedback=modify_feedback,
+                )
+            else:
+                feedback = build_feedback(review)
+                copy_dict, usage = write_copy(
+                    params, {}, thread_ts,
+                    feedback=feedback, previous_copy=copy_dict,
+                )
+
+            session.add_usage(thread_ts, usage["prompt"], usage["completion"], usage["cost"])
+            review = review_copy(copy_dict, params, thread_ts)
+
+            if review.get("approved"):
+                log.info("文案审核通过 (第 %d 轮)", round_num)
+                if round_num > 1:
+                    say(text=f"文案经过 {round_num} 轮审核后通过。", thread_ts=thread_ts)
+                break
+            else:
+                log.info("文案审核未通过 (第 %d/%d 轮): %s", round_num, max_rounds, review.get("verdict"))
         else:
-            log.info("文案审核未通过 (第 %d/%d 轮): %s", round_num, max_rounds, review.get("verdict"))
+            log.warning("文案 %d 轮审核均未通过，使用最终版本", max_rounds)
     else:
-        log.warning("文案 %d 轮审核均未通过，使用最终版本", max_rounds)
+        # 保留现有文案
+        copy_dict = draft.get("copy", {})
+        log.info("保留现有文案: %s", copy_dict.get("title", "")[:30])
 
     # ── 2. 图片处理 ──────────────────────────────────────────
 
-    image_paths = []
-    if need_ai_image or user_images:
+    if is_partial and redo_images == "keep":
+        # 全部保留
+        image_paths = draft.get("images", [])
+        log.info("保留全部现有图片: %d 张", len(image_paths))
+
+    elif is_partial and isinstance(redo_images, list):
+        # 局部重做：只重做指定图片，每张按各自 mode 处理，其余保留
+        # redo_images 格式: [{"index": 2, "mode": "enhance"}, {"index": 3, "mode": "generate"}]
+        old_images = draft.get("images", [])
+        redo_map = {}  # {index: mode}
+        for item in redo_images:
+            if isinstance(item, dict):
+                redo_map[item["index"]] = item.get("mode", "generate")
+            elif isinstance(item, int):
+                redo_map[item] = "generate"  # 兼容旧格式 [1, 3]
+
         step += 1
-        say(text=f"[{step}/{total_steps}] 正在处理图片...", thread_ts=thread_ts)
-        image_paths = process_images(
-            user_images=user_images,
-            params=params,
-            session_id=thread_ts,
-            image_prompt=image_prompt,
-        )
+        indices_str = ", ".join(str(i) for i in sorted(redo_map))
+        say(text=f"[{step}/{steps_needed}] 正在重新处理第 {indices_str} 张图片...",
+            thread_ts=thread_ts)
+
+        # 按需生成 prompt（不同 mode 需要不同 prompt）
+        redo_modes = set(redo_map.values())
+        if ("generate" in redo_modes or "reference" in redo_modes) and not image_prompt:
+            prompts, prompt_usage = generate_prompts(
+                params=params, session_id=thread_ts,
+                need_generate="generate" in redo_modes,
+                need_reference="reference" in redo_modes,
+                need_enhance="enhance" in redo_modes,
+                need_video=False,
+                has_reference_images=bool(user_images),
+            )
+            session.add_usage(thread_ts, prompt_usage["prompt"], prompt_usage["completion"], prompt_usage["cost"])
+            image_prompt = prompts.get("image_prompt", "") or image_prompt
+            enhance_prompt = prompts.get("enhance_prompt", "") or enhance_prompt
+            reference_prompt = prompts.get("reference_prompt", "") or reference_prompt
+
+        # 逐张处理
+        image_paths = []
+        for idx, old_path in enumerate(old_images):
+            user_idx = idx + 1  # 转为用户编号（从1开始）
+            if user_idx not in redo_map:
+                image_paths.append(old_path)
+                continue
+
+            mode = redo_map[user_idx]
+            log.info("局部重做 图%d: mode=%s", user_idx, mode)
+
+            if mode == "raw" and user_idx <= len(user_images):
+                # 用原始上传图片替换
+                image_paths.append(user_images[user_idx - 1])
+
+            elif mode == "enhance" and user_idx <= len(user_images):
+                # 用原始上传图片重新美化
+                new_paths = process_images(
+                    user_images=[user_images[user_idx - 1]],
+                    params={**params, "image_mode": "enhance"},
+                    session_id=thread_ts,
+                    enhance_prompt=enhance_prompt,
+                )
+                image_paths.append(new_paths[0] if new_paths else old_path)
+
+            elif mode == "reference" and user_idx <= len(user_images):
+                # 以原始上传图片为参考重新生成
+                new_paths = process_images(
+                    user_images=[user_images[user_idx - 1]],
+                    params={**params, "image_mode": "reference"},
+                    session_id=thread_ts,
+                    reference_prompt=reference_prompt,
+                )
+                image_paths.append(new_paths[0] if new_paths else old_path)
+
+            else:
+                # generate 模式，或找不到原始图片时 fallback 到 generate
+                new_paths = process_images(
+                    user_images=[],
+                    params={**params, "image_mode": "generate", "image_count": 1},
+                    session_id=thread_ts,
+                    image_prompt=image_prompt,
+                )
+                image_paths.append(new_paths[0] if new_paths else old_path)
+
+            if image_paths[-1] != old_path:
+                log.info("第 %d 张图片已重新处理 (%s)", user_idx, mode)
+            else:
+                log.warning("第 %d 张图片处理失败，保留原图", user_idx)
+
+    else:
+        # 全部重做（完整生成或 redo_images="all"）
+        image_paths = []
+        if need_any_ai_image or user_images:
+            step += 1
+            say(text=f"[{step}/{steps_needed}] 正在处理图片...", thread_ts=thread_ts)
+            image_paths = process_images(
+                user_images=user_images,
+                params=params,
+                session_id=thread_ts,
+                image_prompt=image_prompt,
+                enhance_prompt=enhance_prompt,
+                reference_prompt=reference_prompt,
+            )
 
     # ── 2.5 保底校验：小红书要求至少一张图片 ──────────────────
-    # 如果前面没有走图片处理流程（既没有用户图片也没有 AI 生成），
-    # 或者图片处理后结果为空，自动用 AI 根据文案生成一张兜底图片。
     if not image_paths and not need_video:
         log.warning("无图片素材，自动触发 AI 生成一张兜底图片")
         step += 1
-        say(text=f"[{step}/{total_steps}] 未检测到图片素材，正在用 AI 自动生成一张...", thread_ts=thread_ts)
+        say(text=f"[{step}/{steps_needed}] 未检测到图片素材，正在用 AI 自动生成一张...", thread_ts=thread_ts)
 
-        # 如果之前没有生成过 image_prompt，先生成一个
         if not image_prompt:
             prompts, prompt_usage = generate_prompts(
-                params=params,
-                session_id=thread_ts,
-                need_image=True,
-                need_video=False,
+                params=params, session_id=thread_ts,
+                need_generate=True, need_video=False,
                 has_reference_images=False,
             )
             session.add_usage(thread_ts, prompt_usage["prompt"], prompt_usage["completion"], prompt_usage["cost"])
             image_prompt = prompts.get("image_prompt", "")
 
-        # 强制用 generate 模式生成 1 张图片
         fallback_params = {**params, "image_mode": "generate", "image_count": 1}
         image_paths = process_images(
             user_images=[],
@@ -139,16 +320,20 @@ def run_pipeline(sess: dict, say, slack_client):
 
     # ── 3. 视频生成（可选） ──────────────────────────────────
 
-    video_path = None
     if need_video:
         step += 1
-        say(text=f"[{step}/{total_steps}] 正在生成视频（可能需要几分钟）...", thread_ts=thread_ts)
+        say(text=f"[{step}/{steps_needed}] 正在生成视频（可能需要几分钟）...", thread_ts=thread_ts)
         video_path = generate_video(
             user_images=user_images,
             params=params,
             session_id=thread_ts,
             video_prompt=video_prompt,
         )
+    elif is_partial:
+        # 保留现有视频
+        video_path = draft.get("video")
+    else:
+        video_path = None
 
     # ── 4. 保存草稿并发送结果 ─────────────────────────────────
 

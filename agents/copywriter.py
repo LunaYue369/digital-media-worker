@@ -28,15 +28,19 @@ def _get_client() -> OpenAI:
 
 
 def write_copy(params: dict, knowledge: dict, session_id: str,
-               feedback: str = "", previous_copy: dict | None = None) -> tuple[dict, dict]:
+               feedback: str = "", previous_copy: dict | None = None,
+               rewrite_mode: str = "full",
+               user_feedback: str = "") -> tuple[dict, dict]:
     """生成/重写小红书文案
 
     Args:
         params: 生成参数 {product, promotion, deadline, style, extra_requests}
         knowledge: 店铺知识（已内置在 soul 中，这里传额外信息）
         session_id: 会话 ID（用于记录 token）
-        feedback: 审核反馈（重写时使用）
+        feedback: 审核反馈（自动审核循环时使用）
         previous_copy: 上一版文案（重写时使用）
+        rewrite_mode: "full"=全部重写, "title_only"=只重写标题, "content_only"=只重写正文和标签
+        user_feedback: 用户的具体修改意见（局部修改时由对话层提取）
 
     Returns:
         (copy_dict, usage_dict)
@@ -68,6 +72,38 @@ def write_copy(params: dict, knowledge: dict, session_id: str,
             f"审核反馈：\n{feedback}\n\n"
             f"上一版文案：\n{prev_text}\n\n"
             f"请修正问题，保留好的部分。\n\n"
+            f"{json_format_instruction}"
+        )
+    elif rewrite_mode == "title_only" and previous_copy:
+        prev_title = previous_copy.get("title", "")
+        prev_content = previous_copy.get("content", "")
+        prev_tags = " ".join(previous_copy.get("tags", []))
+        feedback_line = f"用户修改意见：{user_feedback}\n" if user_feedback else ""
+        user_msg = (
+            f"请只重写标题，正文和标签保持不变。用中文撰写。\n\n"
+            f"产品：{params.get('product', '')}，{params.get('promotion', '')}\n"
+            f"风格：{params.get('style', '无特殊偏好')}\n"
+            f"特殊要求：{params.get('extra_requests', '无')}\n\n"
+            f"{feedback_line}"
+            f"当前标题（需重写）：{prev_title}\n"
+            f"当前正文（保持不变）：{prev_content[:200]}...\n\n"
+            f"要求：根据用户意见写一个全新的标题，要有 hook，和正文内容匹配。正文和标签原样返回。\n\n"
+            f"{json_format_instruction}"
+        )
+    elif rewrite_mode == "content_only" and previous_copy:
+        prev_title = previous_copy.get("title", "")
+        prev_content = previous_copy.get("content", "")
+        feedback_line = f"用户修改意见：{user_feedback}\n" if user_feedback else ""
+        user_msg = (
+            f"请只重写正文和标签，标题保持不变。用中文撰写。\n\n"
+            f"产品：{params.get('product', '')}，{params.get('promotion', '')}\n"
+            f"截止日期：{params.get('deadline', '无')}\n"
+            f"风格：{params.get('style', '无特殊偏好')}\n"
+            f"特殊要求：{params.get('extra_requests', '无')}\n\n"
+            f"{feedback_line}"
+            f"当前标题（保持不变）：{prev_title}\n"
+            f"当前正文（需重写）：{prev_content}\n\n"
+            f"要求：根据用户意见重写正文（300-500字）和标签（5-8个），标题原样返回。\n\n"
             f"{json_format_instruction}"
         )
     else:

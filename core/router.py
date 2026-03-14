@@ -76,8 +76,17 @@ def handle_message(event: dict, say, client):
         say(text="正在为您生成中，请稍等...", thread_ts=thread_ts)
 
     elif stage == REVIEWING:
-        # 审核阶段，等待用户点击按钮（满意/重新生成）
-        say(text="请点击上方按钮选择：满意 或 重新生成。", thread_ts=thread_ts)
+        # 审核阶段：用户可以点击按钮，也可以直接打字提修改意见
+        # 文字消息进入对话层，GPT 提取 modify_scope 后局部修改
+        if text:
+            session.update_stage(thread_ts, GATHERING)
+            threading.Thread(
+                target=_safe_run,
+                args=(chat_and_maybe_generate, sess, text, say, client),
+                daemon=True,
+            ).start()
+        else:
+            say(text="请点击上方按钮选择，或直接打字告诉我要修改什么。", thread_ts=thread_ts)
 
     elif stage == DONE:
         # 已完成，如果用户继续说话，开启新一轮

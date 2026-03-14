@@ -100,7 +100,7 @@ def build_result_message(copy_dict: dict, image_paths: list,
         "type": "section",
         "text": {
             "type": "mrkdwn",
-            "text": "复制上方文案，保存图片/视频，发布到小红书。",
+            "text": "满意请点击按钮，或直接打字告诉我要改什么（如「标题换一个」「第2张图重做」）。",
         }
     })
 

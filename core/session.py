@@ -36,7 +36,7 @@ def get_or_create(thread_ts: str, channel: str) -> dict:
                 "params": {},             # 提取出的生成参数（产品、活动、风格等）
                 "platforms": ["小红书"],   # 目标平台（固定小红书）
                 "user_images": [],        # 用户上传的图片本地路径
-                "draft": {},              # 当前草稿 {copy: {}, images: [], video: ""}
+                "draft": {},              # 当前草稿 {copy: {title, content, tags}, images: [pipeline修改出的图片的links], video: "pipeline修改出的视频的link"}
                 "usage": {                # 本次会话 token 用量
                     "prompt_tokens": 0,
                     "completion_tokens": 0,

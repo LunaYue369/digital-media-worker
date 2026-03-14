@@ -27,20 +27,32 @@ def _get_client() -> OpenAI:
 
 
 def generate_prompts(params: dict, session_id: str,
-                     need_image: bool = True, need_video: bool = False,
-                     has_reference_images: bool = False) -> dict:
+                     need_enhance: bool = False, need_reference: bool = False,
+                     need_generate: bool = False, need_video: bool = False,
+                     has_reference_images: bool = False,
+                     # 向后兼容旧调用方式
+                     need_image: bool = False) -> dict:
     """生成优化后的图片/视频提示词
 
     Args:
         params: 用户需求参数 {product, promotion, style, extra_requests}
         session_id: 会话 ID
-        need_image: 是否需要图片提示词
+        need_enhance: 是否需要美化提示词（保留原图主体，加字/滤镜/调色）
+        need_reference: 是否需要参考生成提示词（以原图为灵感，生成全新图）
+        need_generate: 是否需要纯文生图提示词（无参考图）
         need_video: 是否需要视频提示词
-        has_reference_images: 是否有参考图（影响提示词写法）
+        has_reference_images: 是否有参考图（向后兼容，影响视频提示词）
+        need_image: 向后兼容旧调用（等同于 need_generate=True 或 need_reference=True）
 
     Returns:
-        {"image_prompt": "...", "video_prompt": "..."}
+        {"enhance_prompt": "...", "reference_prompt": "...", "image_prompt": "...", "video_prompt": "..."}
     """
+    # 向后兼容：旧代码传 need_image=True 时自动映射
+    if need_image and not (need_enhance or need_reference or need_generate):
+        if has_reference_images:
+            need_reference = True
+        else:
+            need_generate = True
     system_prompt = build_system_prompt("media_engineer")
     gpt_client = _get_client()
 
@@ -86,19 +98,40 @@ def generate_prompts(params: dict, session_id: str,
 
     # 说明需要什么
     needs = []
-    if need_image:
-        if has_reference_images:
-            needs.append("图片提示词（用户已有参考图，请写「图生图」风格的提示词，描述如何基于参考图做变换/增强）")
-        else:
-            needs.append("图片提示词（纯文生图，请写详细的场景描述）")
+    if need_enhance:
+        needs.append(
+            "enhance_prompt（美化提示词：用户已有原图，需要在保留原图主体和构图的基础上做美化处理，"
+            "如添加宣传文字、品牌 logo、滤镜效果、调色、光线增强等。提示词应强调「保留原图」+「叠加效果」）"
+        )
+    if need_reference:
+        needs.append(
+            "reference_prompt（参考生成提示词：用户已有参考图，需要以参考图的内容/构图/风格为灵感，"
+            "生成一张全新的宣传图片。提示词应描述新图的完整场景，可以大幅偏离原图）"
+        )
+    if need_generate:
+        needs.append(
+            "image_prompt（纯文生图提示词：无参考图，请写详细的场景描述，"
+            "包括食物、摆盘、背景、光线、氛围等细节）"
+        )
     if need_video:
         if has_reference_images:
-            needs.append("视频提示词（用户已有参考图作为首帧，请描述动态效果和运镜）")
+            needs.append("video_prompt（视频提示词：用户已有参考图作为首帧，请描述动态效果和运镜）")
         else:
-            needs.append("视频提示词（纯文生视频，请描述完整场景和动态）")
+            needs.append("video_prompt（纯文生视频提示词：请描述完整场景和动态）")
 
     parts.append(f"\n需要生成：{'; '.join(needs)}")
-    parts.append("\n请以 JSON 格式回复：{\"image_prompt\": \"...\", \"video_prompt\": \"...\"}")
+
+    # 构建 JSON 回复格式
+    json_fields = []
+    if need_enhance:
+        json_fields.append('"enhance_prompt": "..."')
+    if need_reference:
+        json_fields.append('"reference_prompt": "..."')
+    if need_generate:
+        json_fields.append('"image_prompt": "..."')
+    if need_video:
+        json_fields.append('"video_prompt": "..."')
+    parts.append(f"\n请以 JSON 格式回复：{{{', '.join(json_fields)}}}")
     parts.append("不需要的字段留空字符串即可。")
 
     user_msg = "\n".join(parts)
