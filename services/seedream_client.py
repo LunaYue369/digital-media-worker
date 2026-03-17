@@ -7,6 +7,8 @@
 import logging
 import os
 import base64
+import random
+import time
 import requests
 from pathlib import Path
 from dotenv import load_dotenv
@@ -14,6 +16,13 @@ from dotenv import load_dotenv
 log = logging.getLogger(__name__)
 
 load_dotenv()
+
+
+def _unique_name(prefix: str = "image") -> str:
+    """生成唯一文件名，避免同目录下多次调用互相覆盖"""
+    ts = int(time.time() * 1000)
+    rand = random.randint(1000, 9999)
+    return f"{prefix}_{ts}_{rand}"
 
 
 class SeedreamClient:
@@ -117,9 +126,10 @@ class SeedreamClient:
                       size: str = "2K") -> list[Path]:
         """文生图：纯文本 → 单图"""
         urls = self.generate_image(prompt=prompt, size=size)
+        name = _unique_name("txt2img")
         paths = []
         for i, url in enumerate(urls):
-            out = output_dir / f"image_{i + 1}.png"
+            out = output_dir / f"{name}_{i + 1}.png"
             self.download_image(url, out)
             paths.append(out)
         return paths
@@ -128,9 +138,10 @@ class SeedreamClient:
                        output_dir: Path, size: str = "2K") -> list[Path]:
         """图生图：参考图 + 文本 → 单图"""
         urls = self.generate_image(prompt=prompt, images=image_paths, size=size)
+        name = _unique_name("img2img")
         paths = []
         for i, url in enumerate(urls):
-            out = output_dir / f"image_{i + 1}.png"
+            out = output_dir / f"{name}_{i + 1}.png"
             self.download_image(url, out)
             paths.append(out)
         return paths
@@ -141,9 +152,10 @@ class SeedreamClient:
         urls = self.generate_image(
             prompt=prompt, size=size, multi_image=True, max_images=max_images,
         )
+        name = _unique_name("txt2imgs")
         paths = []
         for i, url in enumerate(urls):
-            out = output_dir / f"image_{i + 1}.png"
+            out = output_dir / f"{name}_{i + 1}.png"
             self.download_image(url, out)
             paths.append(out)
         return paths

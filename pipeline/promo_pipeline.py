@@ -76,6 +76,18 @@ def run_pipeline(sess: dict, say, slack_client):
         need_enhance = False
         need_reference = False
         need_generate = False
+    elif is_partial and isinstance(redo_images, list):
+        # 局部重做指定图片：只根据被重做图片的实际 mode 判断需求
+        redo_modes_set = set()
+        for item in redo_images:
+            if isinstance(item, dict):
+                redo_modes_set.add(item.get("mode", "generate"))
+            else:
+                redo_modes_set.add("generate")
+        need_enhance = "enhance" in redo_modes_set
+        need_reference = "reference" in redo_modes_set
+        need_generate = "generate" in redo_modes_set
+        need_any_ai_image = need_enhance or need_reference or need_generate
     else:
         if image_mode == "mixed" and per_image_modes:
             need_enhance = "enhance" in per_image_modes
