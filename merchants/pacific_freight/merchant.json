@@ -1,0 +1,9 @@
+{
+  "merchant_id": "pacific_freight",
+  "store_name": "Pacific Freight Logistics",
+  "store_name_short": "Pacific Freight",
+  "default_product": "Full-service freight & logistics",
+  "cuisine_type": "Logistics & Freight",
+  "fallback_image_prompt": "Modern logistics warehouse interior, forklifts moving palletized cargo, blue and white color scheme, clean professional photography, natural lighting, 4K",
+  "fallback_video_prompt": "Realistic style, aerial view of a busy logistics terminal, trucks loading at docks, containers being moved, camera slowly panning across the facility, warm golden hour lighting, professional corporate video quality"
+}

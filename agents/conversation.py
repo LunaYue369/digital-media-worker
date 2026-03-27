@@ -40,8 +40,7 @@ def _get_client() -> OpenAI:
 
 # 对话层的 system prompt 后缀：指导 GPT 做意图理解和参数提取
 def _build_extraction_instruction() -> str:
-    return f"""
-你是{_store_name()}的宣传助手，目标平台固定为小红书。
+    return f"""你是{_store_name()}的宣传助手，目标平台固定为小红书。
 生成的内容是从店家视角出发的（店铺自己的宣传），不是顾客探店视角。
 
 你需要以 JSON 格式回复，包含以下字段：
@@ -240,9 +239,13 @@ def chat_and_maybe_generate(sess: dict, user_text: str, say, client):
         say(text="抱歉，我没能理解您的意思，能再说一遍吗？", thread_ts=thread_ts)
         return
 
-    reply = result.get("reply", "")
+    reply = result.get("reply", "").strip()
     ready = result.get("ready", False)
     params = result.get("params", {})
+
+    if not reply:
+        log.warning("对话层返回空 reply，原始 JSON: %s", raw[:300])
+        reply = "抱歉，我没能理解您的意思，能再说一遍吗？"
 
     # 更新会话参数（逐步补充，不覆盖已有值）
     _merge_params(sess, params)
